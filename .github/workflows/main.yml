@@ -1,0 +1,45 @@
+name: Build, Push and Deploy a Docker Image to Railway
+on:
+  push:
+    branches: [ main ]
+permissions:
+  contents: read
+  packages: write
+jobs:
+  build-push-deploy-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Download Encore CLI script
+        uses: sozo-design/curl@v1.0.2
+        with:
+          args: --output install.sh -L https://encore.dev/install.sh
+      - name: Install Encore CLI
+        run: bash install.sh
+      - name: Build Docker image
+        run: /home/runner/.encore/bin/encore build docker myapp
+      - name: Tag Docker image
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker tag myapp ghcr.io/$REPO_LOWER:latest
+      - name: Push Docker image
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          docker push ghcr.io/$REPO_LOWER:latest
+      - name: Deploy to Railway
+        env:
+          RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
+        run: |
+          REPO_LOWER=$(echo "${{ github.repository }}" | tr '[:upper:]' '[:lower:]')
+          curl -X POST \
+            -H "Authorization: Bearer $RAILWAY_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{"serviceId":"your-service-id","image":"ghcr.io/'"$REPO_LOWER"':latest"}' \
+            https://backboard.railway.app/v1/deploy
