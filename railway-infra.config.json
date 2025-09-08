@@ -1,0 +1,9 @@
+{
+  "infra": {
+    "provider": "railway",
+    "database": {
+      "type": "postgres",
+      "name": "myapp-db"
+    }
+  }
+}
